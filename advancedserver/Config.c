@@ -56,7 +56,7 @@ Config g_config = {
             .authoritarian_mode = false,
             .lobby_ready_required_percentage = 100,
             .kick_unready_before_starting = false,
-            .server_location = "Saint Petersburg",
+            .server_location = "Stockholm",
             .hosts_name = "That Arctic Furry",
             .anonymous_mode = false
         },
