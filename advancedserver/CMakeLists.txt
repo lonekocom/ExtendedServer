@@ -17,6 +17,14 @@ if(BUILD_UI)
 	add_compile_definitions(SYS_USE_SDL2)
 endif()
 
+if(PLUGIN_DYNAMIC_LOADING)
+	add_compile_definitions(PLUGIN_DYNAMIC_LOADING)
+endif()
+
+if(WITH_EXTENDED_CORE)
+	add_compile_definitions(WITH_EXTENDED_CORE)
+endif()
+
 if((CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU"))
 	set(CMAKE_C_FLAGS_DEBUG "-g")
 	set(CMAKE_C_FLAGS_RELEASE "-O3")
@@ -34,6 +42,7 @@ set(SOURCES
         "Log.c"
         "Lib.c"
         "Server.c"
+        "Plugin.c"
         "Vote.c"
         "Maps.c"
         "Packet.c"
@@ -102,6 +111,24 @@ set(SOURCES
         "maps/Marijuna.c"
 )
 
+if(WITH_EXTENDED_CORE)
+	list(APPEND SOURCES
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/plugin_main.c"
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/sha256.c"
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/accounts.c"
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/locale.c"
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/chat.c"
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/skills.c"
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/menu.c"
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/anticheat.c"
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/abilities.c"
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore/promo.c"
+	)
+	include_directories(
+		"${CMAKE_SOURCE_DIR}/plugins/ExtendedCore"
+	)
+endif()
+
 if(DYLIB) # Build .dll or .so
 		add_library(AdvancedServer SHARED ${SOURCES})
 
@@ -111,6 +138,9 @@ if(DYLIB) # Build .dll or .so
 			set(THREADS_PREFER_PTHREAD_FLAG ON)
 			find_package(Threads REQUIRED)
 			target_link_libraries(AdvancedServer PRIVATE enet m Threads::Threads)
+			if(PLUGIN_DYNAMIC_LOADING)
+				target_link_libraries(AdvancedServer PRIVATE ${CMAKE_DL_LIBS})
+			endif()
 		endif()
 else() # Build executable
 		if(BUILD_UI)
@@ -158,6 +188,9 @@ else() # Build executable
 				set(THREADS_PREFER_PTHREAD_FLAG ON)
 				find_package(Threads REQUIRED)
 				target_link_libraries(AdvancedServer PRIVATE enet m Threads::Threads ${SDL2_LIBRARIES} ${SDL2IMAGE_LIBRARIES})
+				if(PLUGIN_DYNAMIC_LOADING)
+					target_link_libraries(AdvancedServer PRIVATE ${CMAKE_DL_LIBS})
+				endif()
 			endif()
 
 		else()
@@ -172,6 +205,9 @@ else() # Build executable
 				set(THREADS_PREFER_PTHREAD_FLAG ON)
 				find_package(Threads REQUIRED)
 				target_link_libraries(AdvancedServer PRIVATE enet m Threads::Threads)
+				if(PLUGIN_DYNAMIC_LOADING)
+					target_link_libraries(AdvancedServer PRIVATE ${CMAKE_DL_LIBS})
+				endif()
 			endif()
 
 		endif()

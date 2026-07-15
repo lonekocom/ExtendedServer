@@ -1,6 +1,7 @@
 #include "Lib.h"
 #include <enet/enet.h>
 #include <Server.h>
+#include <Plugin.h>
 #include <Config.h>
 #include <Moderation.h>
 #include <Status.h>
@@ -171,6 +172,9 @@ bool peer_identity_process(PeerData* v, const char* addr, bool is_banned, uint64
 		}
 	}
 
+	/* Plugins after identity response + stock welcome — client can show chat. */
+	plugins_peer_identity_ok(v);
+
 	MutexLock(ip_addr_mut);
 		cJSON_AddItemToObject(ip_addr_list, addr, cJSON_CreateTrue());
 		cJSON_AddItemToObject(ip_addr_list, v->udid.value, cJSON_CreateTrue());
@@ -280,6 +284,12 @@ bool peer_identity(PeerData* v, Packet* packet)
 			goto quit;
 		}
 
+		if (plugins_peer_identity(v) == PLUGIN_HANDLED)
+		{
+			res = true;
+			goto quit;
+		}
+
 		res = peer_identity_process(v, v->ip.value, is_banned, timeout, server_index == -1);
 		if (!res)
 			goto quit;
@@ -304,7 +314,10 @@ bool peer_msg(PeerData* v, Packet* packet)
 	bool res;
 	MutexLock(v->server->state_lock);
 	{
-		res = server_state_handle(v, packet);
+		if (plugins_packet(v, packet) == PLUGIN_HANDLED)
+			res = true;
+		else
+			res = server_state_handle(v, packet);
 	}
 	MutexUnlock(v->server->state_lock);
 
@@ -357,6 +370,7 @@ bool server_worker(Server* server)
 					v->peer = ev.peer;
 					v->id = ev.peer->incomingPeerID + 1;
 					enet_address_get_host_ip(&ev.peer->address, v->ip.value, 250);
+					plugins_peer_connect(v);
 
 					Packet packet;
 					PacketCreate(&packet, SERVER_PREIDENTITY);
@@ -395,6 +409,8 @@ bool server_worker(Server* server)
 						}
 						MutexUnlock(v->server->state_lock);
 					}
+
+					plugins_peer_disconnect(v);
 					
 					Info("%s (id %d) " LOG_YLW "left.", v->nickname.value, v->id);
 					free(v);
@@ -450,6 +466,8 @@ bool server_worker(Server* server)
 					results_state_tick(server);
 					break;
 				}
+
+				plugins_tick(server, server->delta);
 
 				// Heartbeat 
 				if (server->peers.noitems > 0)
@@ -610,6 +628,15 @@ bool server_broadcast_ex(Server* server, Packet* packet, bool reliable, uint16_t
 	return true;
 }
 
+void server_set_state(Server* server, int state)
+{
+	int old = server->state;
+	if (old == state)
+		return;
+	server->state = state;
+	plugins_state_change(server, old, state);
+}
+
 bool server_state_joined(PeerData* v)
 {
 	Packet pack;
@@ -630,21 +657,26 @@ bool server_state_joined(PeerData* v)
     }
 	server_broadcast_ex(v->server, &pack, true, v->id);
 
+	bool ok = true;
 	switch (v->server->state)
 	{
 	case ST_LOBBY:
 	case ST_CHARSELECT:
 	case ST_MAPVOTE:
-		return lobby_state_join(v);
+		ok = lobby_state_join(v);
+		break;
 
 	case ST_GAME:
-		return game_state_join(v);
+		ok = game_state_join(v);
+		break;
 
 	case ST_RESULTS:
 		break;
 	}
 
-	return true;
+	if (ok)
+		plugins_peer_join(v);
+	return ok;
 }
 
 bool server_state_handle(PeerData* v, Packet* packet)
@@ -672,6 +704,8 @@ bool server_state_left(PeerData* v)
 	if (v == player_action.peer)
 		ui_button_back();
 #endif
+	plugins_peer_leave(v);
+
     Packet pack;
 	PacketCreate(&pack, SERVER_PLAYER_LEFT);
 	PacketWrite(&pack, packet_write16, v->id);
@@ -744,7 +778,7 @@ bool server_cmd_handle(Server* server, unsigned long hash, PeerData* v, String* 
 	switch(hash)
 	{
 		default:
-			return false;
+			return plugins_command(v, hash, msg) == PLUGIN_HANDLED;
 
         case CMD_REBOOT:
         {

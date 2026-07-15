@@ -1,4 +1,6 @@
 #include <Log.h>
+#include <Server.h>
+#include <Plugin.h>
 #include <States.h>
 #include <CMath.h>
 #include <Colors.h>
@@ -272,7 +274,7 @@ bool charselect_init(int8_t map, Server* server)
 		return lobby_init(server);
 	}
 
-	server->state = ST_CHARSELECT;
+	server_set_state(server, ST_CHARSELECT);
 	server->lobby.countdown_sec = g_config.states.character_selection.charselect_timer;
 	server->lobby.countdown = TICKSPERSEC;
 	memset(server->lobby.avail, 1, sizeof(uint8_t) * (CH_SALLY + 1));

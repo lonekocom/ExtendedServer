@@ -1,1 +1,2 @@
--e "build-windows/\nbuild-linux/" 
+build-windows/
+build-linux/

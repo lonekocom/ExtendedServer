@@ -1,6 +1,7 @@
 #include <Player.h>
 #include <Packet.h>
 #include <Server.h>
+#include <Plugin.h>
 #include <Colors.h>
 #include <States.h>
 
@@ -121,7 +122,7 @@ bool results_send(Server* server, PeerData* v, PeerData* data, bool has_quit)
 bool results_init(Server* server)
 {
 	Debug("Attepting to enter ST_RESULTS...");
-	server->state = ST_RESULTS;
+	server_set_state(server, ST_RESULTS);
     server->results.countdown = g_config.states.results_misc.timer * TICKSPERSEC;
 
 	Packet pack;
@@ -129,6 +130,7 @@ bool results_init(Server* server)
 	PacketWrite(&pack, packet_write8, server->game.map);
 	server_broadcast(server, &pack, true);
 
+	plugins_results(server);
 	Info("Server is now in " LOG_PUR "Results");
 	return true;
 }
@@ -238,6 +240,9 @@ bool results_state_handle(PeerData* v, Packet* packet)
 			AssertOrDisconnect(v->server, string_length(&msg) <= 40);
 
 			v->timeout = 0;
+
+			if (plugins_chat(v, &msg) == PLUGIN_HANDLED)
+				break;
 
 			Info("[%s] (id %d): %s", v->nickname.value, v->id, msg.value);
             if (!server_cmd_handle(v->server, server_cmd_parse(&msg), v, &msg) && g_config.states.lobby_misc.apply_textchat_fixes)

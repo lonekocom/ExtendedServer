@@ -4,6 +4,7 @@
 #include <Lib.h>
 #include <Log.h>
 #include <Server.h>
+#include <Plugin.h>
 #include <States.h>
 #include <DyList.h>
 #include <Config.h>
@@ -51,6 +52,7 @@ bool allocate_server(uint16_t base_port, uint16_t n)
 
 	Info("Listening on port %d.", base_port + n);
 	RAssert(server->host != NULL);
+	plugins_server_created(server);
 	RAssert(lobby_init(server));
 	RAssert(dylist_push(&servers, server));
 
@@ -61,6 +63,8 @@ bool deallocate_server(Server* server)
 {
     if (!server)
         return false;
+
+	plugins_server_destroyed(server);
 
     if (server->host) {
         enet_host_destroy(server->host);
@@ -122,6 +126,7 @@ bool disaster_init(void)
     RAssert(init_balls());
     RAssert(status_init());
 	RAssert(log_init());
+	RAssert(plugins_init());
 
 	RAssert(dylist_create(&servers, g_config.server_config.networking.server_count));
 	for (int32_t i = 0; i < g_config.server_config.networking.server_count; i++)
@@ -142,6 +147,7 @@ void disaster_shutdown(void)
     }
 
     dylist_free(&servers);
+	plugins_shutdown();
     log_uninit();
     enet_deinitialize();
     running = false;

@@ -7,6 +7,7 @@
 #include <CMath.h>
 #include <DyList.h>
 #include <Server.h>
+#include <Plugin.h>
 #include <Palette.h>
 #include <Colors.h>
 #include <entities/Ring.h>
@@ -56,6 +57,7 @@ bool game_end(Server* server, Ending ending, bool achiv)
 	server_broadcast(server, &packet, true);
 	server->game.end = g_config.states.gameplay.ending_timer * TICKSPERSEC;
 	server->game.ending = ending;
+	plugins_game_end(server, (int)ending);
 	return true;
 }
 
@@ -113,7 +115,7 @@ bool game_init(int exe, int8_t map, Server* server)
     Debug("Attepting to enter ST_GAME...");
     RAssert(server_ingame(server) > 1 - g_config.states.gameplay.banana.singleplayer);
 
-	server->state = ST_GAME;
+	server_set_state(server, ST_GAME);
 	server->game = (Game)
 	{
 		.map = map,
@@ -212,6 +214,7 @@ bool game_init(int exe, int8_t map, Server* server)
 	}
 
 	Info(LOG_YLW "Server is now in " LOG_PUR "Game");
+	plugins_game_start(server);
 	return true;
 }
 
@@ -1107,6 +1110,9 @@ bool game_state_handletcp(PeerData* v, Packet* packet)
 				if (v->plr.flags & PLAYER_DEAD || v->plr.flags & PLAYER_ESCAPED)
 					break;
 
+				if (plugins_player_death(v) == PLUGIN_HANDLED)
+					break;
+
 				SET_FLAG(v->plr.flags, PLAYER_DEAD);
                 if (v->plr.flags & PLAYER_REVIVED || (v->server->game.time_sec < g_config.states.gameplay.sudden_death_timer) == !g_config.states.gameplay.banana.disable_timer)
 				{
@@ -1480,6 +1486,8 @@ bool game_state_handletcp(PeerData* v, Packet* packet)
 
 				server_broadcast_ex(v->server, &pack, false, v->id);
 			}
+
+			plugins_player_data(v);
 			break;
 		}
 	}
@@ -1864,6 +1872,14 @@ bool game_state_tick(Server* server)
 	}
 
 	RAssert(game_player_tick(server));
+	/* Plugin per-peer game ticks after stock player tick */
+	for (size_t i = 0; i < server->peers.capacity; i++)
+	{
+		PeerData* data = (PeerData*)server->peers.ptr[i];
+		if (!data || !data->in_game)
+			continue;
+		plugins_game_player_tick(server, data);
+	}
 	RAssert(game_entity_tick(server));
 	RAssert(g_mapList[server->game.map].cb.tick(server));
 

@@ -1,4 +1,5 @@
 #include "Server.h"
+#include <Plugin.h>
 #include <States.h>
 #include <Maps.h>
 #include <CMath.h>
@@ -174,7 +175,7 @@ bool mapvote_init(Server* server)
 	srand((unsigned int)seed);
 
 	RAssert(server);
-	server->state = ST_MAPVOTE;
+	server_set_state(server, ST_MAPVOTE);
     server->lobby.countdown_sec = g_config.states.map_selection.timer;
 	server->lobby.countdown = TICKSPERSEC;
 	memset(server->lobby.votes, 0, sizeof(server->lobby.votes));

@@ -1,5 +1,6 @@
 #include <Log.h>
 #include <Server.h>
+#include <Plugin.h>
 #include <States.h>
 #include <Config.h>
 #include <Moderation.h>
@@ -210,6 +211,9 @@ bool lobby_state_handle(PeerData* v, Packet* packet)
 			PacketRead(msg, packet, packet_readstr, String);
 			AssertOrDisconnect(v->server, string_length(&msg) <= 80);
 			v->timeout = 0;
+
+			if (plugins_chat(v, &msg) == PLUGIN_HANDLED)
+				return true;
 
 			if(strstr(msg.value, "i want big burgr"))
 			{
@@ -753,7 +757,7 @@ bool lobby_init(Server* server)
 		}
 	}
 
-	server->state = ST_LOBBY;
+	server_set_state(server, ST_LOBBY);
 	server->lobby.countdown = TICKSPERSEC;
 	server->lobby.countdown_sec = NO_COUNTDOWN;
 	server->lobby.prac_countdown = 0;

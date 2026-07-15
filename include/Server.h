@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define SERVER_PLUGIN_SLOTS 16
+
 #define TICKSPERSEC 60
 #define SERVER_VERSION "1.1.0.1.chi"
 #define UPPER_BRACKET "-----\\advanced/server~-----"
@@ -75,6 +77,9 @@ typedef struct PeerData
 	double				vote_cooldown;
 
 	struct Server*		server;
+
+	/* Per-plugin userdata slots (see Plugin.h). Owned by the plugin system. */
+	void*				plugin_data[SERVER_PLUGIN_SLOTS];
 } PeerData;
 
 typedef struct
@@ -171,7 +176,12 @@ typedef struct Server
 	double			delta;
 	DyList			peers;
 	ENetHost*		host;
+
+	/* Per-plugin userdata slots (see Plugin.h). Owned by the plugin system. */
+	void*			plugin_data[SERVER_PLUGIN_SLOTS];
 } Server;
+
+void				server_set_state	(Server* server, int state);
 
 bool				server_state_joined (PeerData* v);
 bool				server_state_left 	(PeerData* v);
